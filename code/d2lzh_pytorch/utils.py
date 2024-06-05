@@ -337,9 +337,12 @@ def load_data_jay_lyrics():
             corpus_chars = f.read().decode('utf-8')
     corpus_chars = corpus_chars.replace('\n', ' ').replace('\r', ' ')
     corpus_chars = corpus_chars[0:10000]
+    # 字符列表
     idx_to_char = list(set(corpus_chars))
+    # 映射关系
     char_to_idx = dict([(char, i) for i, char in enumerate(idx_to_char)])
     vocab_size = len(char_to_idx)
+    # 索引列表
     corpus_indices = [char_to_idx[char] for char in corpus_chars]
     return corpus_indices, char_to_idx, idx_to_char, vocab_size
 
@@ -365,14 +368,25 @@ def data_iter_random(corpus_indices, batch_size, num_steps, device=None):
         yield torch.tensor(X, dtype=torch.float32, device=device), torch.tensor(Y, dtype=torch.float32, device=device)
 
 def data_iter_consecutive(corpus_indices, batch_size, num_steps, device=None):
+    """
+    生成一个连续的迷你批次数据迭代器，用于循环神经网络（RNN）的训练
+
+    corpus_indices: 一个包含数据的列表或数组，通常是文本数据的索引表示。
+    batch_size: 批次大小
+    num_steps: 每个样本包含的时间步数（也称为序列长度）。
+    device: 运行设备（CPU 或 GPU）。如果未指定，函数会自动选择 GPU（如果可用）或 CPU。
+    """
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     corpus_indices = torch.tensor(corpus_indices, dtype=torch.float32, device=device)
     data_len = len(corpus_indices)
     batch_len = data_len // batch_size
+    # 将整个时间序列分成batch_size行,每个时间步为一代,
     indices = corpus_indices[0: batch_size*batch_len].view(batch_size, batch_len)
     epoch_size = (batch_len - 1) // num_steps
+    print('epoch_size(数据总批次): ', epoch_size)
     for i in range(epoch_size):
+        print(f'第{i}次')
         i = i * num_steps
         X = indices[:, i: i + num_steps]
         Y = indices[:, i + 1: i + num_steps + 1]
@@ -424,10 +438,14 @@ def train_and_predict_rnn(rnn, get_params, init_rnn_state, num_hiddens,
                           char_to_idx, is_random_iter, num_epochs, num_steps,
                           lr, clipping_theta, batch_size, pred_period,
                           pred_len, prefixes):
+    # 判断是否随机迭代
     if is_random_iter:
+        print("Random iteration")
         data_iter_fn = data_iter_random
     else:
+        print("不随机迭代")
         data_iter_fn = data_iter_consecutive
+    # 要求的模型参数
     params = get_params()
     loss = nn.CrossEntropyLoss()
 
@@ -518,6 +536,26 @@ def train_and_predict_rnn_pytorch(model, num_hiddens, vocab_size, device,
                                 corpus_indices, idx_to_char, char_to_idx,
                                 num_epochs, num_steps, lr, clipping_theta,
                                 batch_size, pred_period, pred_len, prefixes):
+    """
+    @model: RNN model
+    @num_hiddens:
+    @vocab_size:
+    @device:
+
+    @corpus_indices: 待训练数据
+    @idx_to_char:
+    @char_to_idx:
+
+    @num_epochs:
+    @num_steps:
+    @lr: learning rate(学习率)
+    @clipping_theta:
+
+    @batch_size:
+    @pred_period:
+    @pred_len:
+    @prefixes: 前缀?
+    """
     loss = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     model.to(device)
